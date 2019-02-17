@@ -1,9 +1,6 @@
 """
 Dnd_melee_accack is for performing melee attacks in DnD as well as returning
 statistics for given melee attack input parameters
-
-TODO:
-- named tuple generation for all parameters
 """
 
 import numpy as np
@@ -14,6 +11,19 @@ def melee_attack(armor_class, hit_die=6, num_hit_dice=1, to_hit_mod=0, mod=0,
     """
     Check to see if a melee attack against a given armor_class will hit then
     perform the attack
+
+    Arguments:
+        armor_class: armor class to check hit against
+        hit_die: the size of the damage die that will be rolled
+        num_hit_dice: the number of hit die that will be rolled for damage
+        to_hit_mod: added modifier when making attacks
+        mod: added modifier to damage
+        bonus_crit_die: additional hit dice awarded on a critical hit
+        advantage: roll to hit twice and take the max result
+        disadvantage: roll to hit twice and take the min result
+        crit_19: A to hit roll of 19 counts as a critical
+        reroll: When rolling damage, reroll 1's and 2's once
+        gwm: incorperates great weapon master feat, -5 to hit and +10 to dmg
     """
 
     to_hit = roll_to_hit(armor_class, to_hit_mod=to_hit_mod,
@@ -48,28 +58,18 @@ def roll_to_hit(armor_class, to_hit_mod=0, advantage=False, disadvantage=False,
 
     hit_roll['to_hit_dice'] = to_hit_dice
     hit_roll['to_hit_mod'] = to_hit_mod
-    crit_check = to_hit # to avoid gwm messing up crits
-    to_hit += to_hit_mod
 
-    if gwm:
-        to_hit -= 5
-
-    hit_roll['hit'] = False
-    hit_roll['crit'] = False
-
-    if crit_check == 20:
+    if to_hit == 20 or (to_hit == 19 and crit_19):
         hit_roll['hit'] = True
         hit_roll['crit'] = True
 
-    elif crit_19 and crit_check == 19:
-        hit_roll['hit'] = True
-        hit_roll['crit'] = True
+    elif to_hit == 1:
+        hit_roll['hit'] = False
+        hit_roll['crit'] = False
 
-    elif crit_check == 1:
-        pass
-
-    elif to_hit >= armor_class:
-        hit_roll['hit'] = True
+    else:
+        hit_roll['hit'] = to_hit + to_hit_mod - (5 if gwm else 0) >= armor_class
+        hit_roll['crit'] = False
 
     return hit_roll
 
@@ -82,6 +82,7 @@ def roll_dmg(to_hit=None, hit=False, crit=False, hit_die=6, num_hit_dice=1,
 
     attack = dict()
 
+    # If no hit info is provided, will generate a generic attack
     if to_hit is None:
         attack['to_hit_dice'] = np.random.randint(1, 21, size=2)
         hit = True
@@ -128,6 +129,11 @@ def melee_stats(iters, armor_class, ci=10, num_attacks=1, hit_die=6, num_hit_dic
                 crit_19=False, reroll=False, gwm=False):
     """
     Returns statistics a melee attack against a given armor class
+
+    Arguments:
+        iters: numbers of times to try attacking armor_class
+        ci: confidence interval for computing statistics
+        num_attacks: number of times each attack is performed
     """
 
     attack_stats = dict()
@@ -184,8 +190,9 @@ def melee_vs_ac(iters, armor_classes, ci=10, num_attacks=1, hit_die=6,
     attack_stats_vs_ac['dmg_mean'] = []
     attack_stats_vs_ac['dmg_ci_lo'] = []
     attack_stats_vs_ac['dmg_ci_hi'] = []
+    attack_stats_vs_ac['dmg_per_round'] = np.empty([len(armor_classes), iters])
 
-    for armor_class in armor_classes:
+    for i, armor_class in enumerate(armor_classes):
         attack_stats = melee_stats(iters, armor_class, ci=ci,
                                    num_attacks=num_attacks, hit_die=hit_die,
                                    num_hit_dice=num_hit_dice, mod=mod,
@@ -200,5 +207,6 @@ def melee_vs_ac(iters, armor_classes, ci=10, num_attacks=1, hit_die=6,
         attack_stats_vs_ac['dmg_mean'].append(attack_stats['dmg_mean'])
         attack_stats_vs_ac['dmg_ci_lo'].append(attack_stats['dmg_ci_lo'])
         attack_stats_vs_ac['dmg_ci_hi'].append(attack_stats['dmg_ci_hi'])
+        attack_stats_vs_ac['dmg_per_round'][i,:] = attack_stats['dmg_per_round']
 
     return attack_stats_vs_ac
