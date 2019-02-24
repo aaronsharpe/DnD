@@ -1,10 +1,6 @@
 """
 Dnd_melee_accack is for performing melee attacks in DnD as well as returning
 statistics for given melee attack input parameters
-
-TODO
-Testing functions
-Profile
 """
 
 from collections import namedtuple
